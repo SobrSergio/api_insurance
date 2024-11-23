@@ -11,6 +11,35 @@ services:
       - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
+    networks:
+      - backend
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: INSURANCE_KAFKA://kafka:9093,PLAINTEXT://kafka:9092
+      KAFKA_LISTENERS: INSURANCE_KAFKA://0.0.0.0:9093,PLAINTEXT://0.0.0.0:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INSURANCE_KAFKA:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INSURANCE_KAFKA
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+    depends_on:
+      - zookeeper
+    networks:
+      - backend
+
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    ports:
+      - "2181:2181"
+    networks:
+      - backend
 
   app:
     build: .
@@ -18,8 +47,18 @@ services:
       - "8000:8000"
     depends_on:
       - db
+      - kafka
     environment:
       DATABASE_URL: postgresql://user:password@db/insurance_db
+      KAFKA_BROKER_URL: INSURANCE_KAFKA://kafka:9093
+    networks:
+      - backend
+    # Задержка старта приложения, чтобы Kafka и DB успели запуститься
+    entrypoint: ["./wait-for-it.sh", "kafka:9093", "--", "./wait-for-it.sh", "db:5432", "--", "uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+networks:
+  backend:
+    driver: bridge
 
 volumes:
   db_data:

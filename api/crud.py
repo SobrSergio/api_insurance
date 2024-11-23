@@ -2,14 +2,16 @@ from sqlalchemy.orm import Session
 from . import models, schemas
 from datetime import date
 from typing import Optional
+from .kafka_file import send_to_kafka  # Импортируем функцию для отправки сообщений в Kafka
 
-def create_tariff(db: Session, tariff: schemas.TariffCreate) -> models.Tariff:
+def create_tariff(db: Session, tariff: schemas.TariffCreate, user_id: Optional[int] = None) -> models.Tariff:
     """
-    Создает новый тариф в базе данных.
+    Создает новый тариф в базе данных и отправляет лог в Kafka.
     
     Args:
         db (Session): Сессия базы данных.
         tariff (schemas.TariffCreate): Данные для создания тарифа.
+        user_id (Optional[int]): ID пользователя, который совершает действие (если есть).
         
     Returns:
         models.Tariff: Созданный тариф.
@@ -23,6 +25,19 @@ def create_tariff(db: Session, tariff: schemas.TariffCreate) -> models.Tariff:
         db.add(db_tariff)
         db.commit()
         db.refresh(db_tariff)
+        
+        # Логирование в Kafka
+        message = {
+            "user_id": user_id,
+            "action": "create_tariff",
+            "tariff_id": db_tariff.id,
+            "cargo_type": db_tariff.cargo_type,
+            "rate": db_tariff.rate,
+            "effective_date": db_tariff.effective_date.isoformat(),
+            "timestamp": db_tariff.effective_date.isoformat(),
+        }
+        send_to_kafka(message)
+        
     except Exception as e:
         db.rollback()
         raise ValueError(f"Ошибка при создании тарифа: {e}")
@@ -56,13 +71,14 @@ def get_all_tariffs(db: Session) -> list[models.Tariff]:
     """
     return db.query(models.Tariff).all()
 
-def delete_tariff(db: Session, tariff_id: int) -> Optional[models.Tariff]:
+def delete_tariff(db: Session, tariff_id: int, user_id: Optional[int] = None) -> Optional[models.Tariff]:
     """
-    Удаляет тариф по ID.
+    Удаляет тариф по ID и отправляет лог в Kafka.
     
     Args:
         db (Session): Сессия базы данных.
         tariff_id (int): Идентификатор тарифа для удаления.
+        user_id (Optional[int]): ID пользователя, который совершает действие (если есть).
         
     Returns:
         Optional[models.Tariff]: Удаленный тариф или None, если тариф не найден.
@@ -72,19 +88,33 @@ def delete_tariff(db: Session, tariff_id: int) -> Optional[models.Tariff]:
         try:
             db.delete(tariff)
             db.commit()
+            
+            # Логирование в Kafka
+            message = {
+                "user_id": user_id,
+                "action": "delete_tariff",
+                "tariff_id": tariff.id,
+                "cargo_type": tariff.cargo_type,
+                "rate": tariff.rate,
+                "effective_date": tariff.effective_date.isoformat(),
+                "timestamp": tariff.effective_date.isoformat(),
+            }
+            send_to_kafka(message)
+            
         except Exception as e:
             db.rollback()
             raise ValueError(f"Ошибка при удалении тарифа: {e}")
     return tariff
 
-def update_tariff(db: Session, tariff_id: int, updated_tariff: schemas.TariffUpdate) -> Optional[models.Tariff]:
+def update_tariff(db: Session, tariff_id: int, updated_tariff: schemas.TariffUpdate, user_id: Optional[int] = None) -> Optional[models.Tariff]:
     """
-    Обновляет тариф по ID.
+    Обновляет тариф по ID и отправляет лог в Kafka.
     
     Args:
         db (Session): Сессия базы данных.
         tariff_id (int): Идентификатор тарифа для обновления.
         updated_tariff (schemas.TariffUpdate): Данные для обновления тарифа.
+        user_id (Optional[int]): ID пользователя, который совершает действие (если есть).
         
     Returns:
         Optional[models.Tariff]: Обновленный тариф, если он был найден и обновлен.
@@ -97,6 +127,19 @@ def update_tariff(db: Session, tariff_id: int, updated_tariff: schemas.TariffUpd
         try:
             db.commit()
             db.refresh(tariff)
+            
+            # Логирование в Kafka
+            message = {
+                "user_id": user_id,
+                "action": "update_tariff",
+                "tariff_id": tariff.id,
+                "cargo_type": tariff.cargo_type,
+                "rate": tariff.rate,
+                "effective_date": tariff.effective_date.isoformat(),
+                "timestamp": tariff.effective_date.isoformat(),
+            }
+            send_to_kafka(message)
+            
         except Exception as e:
             db.rollback()
             raise ValueError(f"Ошибка при обновлении тарифа: {e}")
