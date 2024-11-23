@@ -1,9 +1,9 @@
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 from . import models, schemas, crud
-from .database import get_db, engine  # Импортируем функцию get_db
+from .database import get_db, engine  
 
-# Создаем таблицы в БД
+
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
@@ -64,7 +64,7 @@ def update_tariff(tariff_id: int, tariff: schemas.TariffUpdate, db: Session = De
         raise HTTPException(status_code=404, detail="Tariff not found")
     return updated
 
-@app.get("/tariffs/by_date", response_model=dict)
+@app.get("/tariffs/by_date/", response_model=dict)
 def get_tariffs_structured(db: Session = Depends(get_db)):
     """
     Получает тарифы из базы данных, возвращая их в структуре, где ключами являются даты, а значениями — тарифы.
@@ -74,8 +74,8 @@ def get_tariffs_structured(db: Session = Depends(get_db)):
     structured_tariffs = {}
     
     for tariff in tariffs:
-        # Группируем тарифы по effective_date
-        date_str = tariff.effective_date.isoformat()  # Преобразуем дату в строку
+        
+        date_str = tariff.effective_date.isoformat()  
         if date_str not in structured_tariffs:
             structured_tariffs[date_str] = []
         
@@ -87,7 +87,7 @@ def get_tariffs_structured(db: Session = Depends(get_db)):
     
     return structured_tariffs
 
-# Новый метод для расчета стоимости страхования
+
 @app.post("/insurance/", response_model=schemas.InsuranceResponse)
 def calculate_insurance(insurance_request: schemas.InsuranceRequest, db: Session = Depends(get_db)):
     """

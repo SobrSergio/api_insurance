@@ -10,10 +10,10 @@ class Tariff(Base):
     rate = Column(Float, nullable=False)
     effective_date = Column(Date, nullable=False)
 
-    # Связь с TariffGroup для хранения нескольких тарифов на одну дату
+    
     tariff_group_id = Column(Integer, ForeignKey('tariff_groups.id'))
 
-    # Связь с группой тарифов
+    
     tariff_group = relationship("TariffGroup", back_populates="tariffs")
 
     def __repr__(self):
@@ -23,9 +23,9 @@ class TariffGroup(Base):
     __tablename__ = "tariff_groups"
     
     id = Column(Integer, primary_key=True, index=True)
-    effective_date = Column(Date, nullable=False, unique=True)  # Уникальная дата
+    effective_date = Column(Date, nullable=False, unique=True)  
 
-    # Связь с тарифами
+    
     tariffs = relationship("Tariff", back_populates="tariff_group")
 
     def __repr__(self):

@@ -2,9 +2,9 @@ from sqlalchemy.orm import Session
 from . import models, schemas
 from datetime import date
 from typing import Optional, Dict, List
-from .kafka_file import send_to_kafka  # Импортируем функцию для отправки сообщений в Kafka
+from .kafka_file import send_to_kafka  
 
-# Создание тарифов для старой структуры
+
 def create_tariff(db: Session, tariff: schemas.TariffCreate, user_id: Optional[int] = None) -> models.Tariff:
     """
     Создает новый тариф в базе данных и отправляет лог в Kafka для старой структуры.
@@ -27,7 +27,7 @@ def create_tariff(db: Session, tariff: schemas.TariffCreate, user_id: Optional[i
         db.commit()
         db.refresh(db_tariff)
 
-        # Логирование в Kafka
+        
         message = {
             "user_id": user_id,
             "action": "create_tariff",
@@ -45,7 +45,7 @@ def create_tariff(db: Session, tariff: schemas.TariffCreate, user_id: Optional[i
     
     return db_tariff
 
-# Получение тарифа по ID для старой структуры
+
 def get_tariff(db: Session, tariff_id: int) -> Optional[models.Tariff]:
     """
     Получает тариф по ID для старой структуры.
@@ -62,7 +62,7 @@ def get_tariff(db: Session, tariff_id: int) -> Optional[models.Tariff]:
         raise ValueError(f"Тариф с ID {tariff_id} не найден.")
     return tariff
 
-# Получение всех тарифов для старой структуры
+
 def get_all_tariffs(db: Session) -> list[models.Tariff]:
     """
     Получает все тарифы из базы данных для старой структуры.
@@ -75,7 +75,7 @@ def get_all_tariffs(db: Session) -> list[models.Tariff]:
     """
     return db.query(models.Tariff).all()
 
-# Удаление тарифа для старой структуры
+
 def delete_tariff(db: Session, tariff_id: int, user_id: Optional[int] = None) -> Optional[models.Tariff]:
     """
     Удаляет тариф по ID и отправляет лог в Kafka для старой структуры.
@@ -94,7 +94,7 @@ def delete_tariff(db: Session, tariff_id: int, user_id: Optional[int] = None) ->
             db.delete(tariff)
             db.commit()
 
-            # Логирование в Kafka
+            
             message = {
                 "user_id": user_id,
                 "action": "delete_tariff",
@@ -111,7 +111,7 @@ def delete_tariff(db: Session, tariff_id: int, user_id: Optional[int] = None) ->
             raise ValueError(f"Ошибка при удалении тарифа: {e}")
     return tariff
 
-# Обновление тарифа для старой структуры
+
 def update_tariff(db: Session, tariff_id: int, updated_tariff: schemas.TariffUpdate, user_id: Optional[int] = None) -> Optional[models.Tariff]:
     """
     Обновляет тариф по ID и отправляет лог в Kafka для старой структуры.
@@ -134,7 +134,7 @@ def update_tariff(db: Session, tariff_id: int, updated_tariff: schemas.TariffUpd
             db.commit()
             db.refresh(tariff)
 
-            # Логирование в Kafka
+            
             message = {
                 "user_id": user_id,
                 "action": "update_tariff",
@@ -151,7 +151,7 @@ def update_tariff(db: Session, tariff_id: int, updated_tariff: schemas.TariffUpd
             raise ValueError(f"Ошибка при обновлении тарифа: {e}")
     return tariff
 
-# Создание тарифов по группам дат и типов грузов для новой структуры
+
 def create_tariffs_by_date(db: Session, tariffs_by_date: schemas.TariffsByDateCreate, user_id: Optional[int] = None):
     """
     Создает новые тарифы по группам дат и типов грузов для новой структуры.
@@ -173,7 +173,7 @@ def create_tariffs_by_date(db: Session, tariffs_by_date: schemas.TariffsByDateCr
 
         db.commit()
 
-        # Логирование в Kafka
+        
         for effective_date, tariffs in tariffs_by_date.tariffs_by_date.items():
             for tariff in tariffs:
                 message = {
@@ -190,7 +190,7 @@ def create_tariffs_by_date(db: Session, tariffs_by_date: schemas.TariffsByDateCr
         db.rollback()
         raise ValueError(f"Ошибка при создании тарифов: {e}")
 
-# Получение тарифов для конкретной даты для новой структуры
+
 def get_tariffs_by_date(db: Session, effective_date: date) -> Dict[date, List[models.Tariff]]:
     """
     Получает тарифы для конкретной даты для новой структуры.

@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings
 from typing import Optional
 from pydantic import ValidationError
 
-# Игнорируем предупреждения от Pydantic
+# Игнорируем предупреждения от Pydantic (задолбал)
 warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
 
 class Settings(BaseSettings):

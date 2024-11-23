@@ -58,9 +58,6 @@ services:
     depends_on:
       - db
       - kafka
-    environment:
-      DATABASE_URL: postgresql://user:password@db/insurance_db
-      KAFKA_BROKER_URL: INSURANCE_KAFKA://kafka:9093
     networks:
       - backend
     entrypoint: ["./wait-for-it.sh", "kafka:9093", "--", "./wait-for-it.sh", "db:5432", "--", "uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
