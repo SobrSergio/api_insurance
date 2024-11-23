@@ -1,12 +1,13 @@
 from sqlalchemy.orm import Session
 from . import models, schemas
 from datetime import date
-from typing import Optional
+from typing import Optional, Dict, List
 from .kafka_file import send_to_kafka  # Импортируем функцию для отправки сообщений в Kafka
 
+# Создание тарифов для старой структуры
 def create_tariff(db: Session, tariff: schemas.TariffCreate, user_id: Optional[int] = None) -> models.Tariff:
     """
-    Создает новый тариф в базе данных и отправляет лог в Kafka.
+    Создает новый тариф в базе данных и отправляет лог в Kafka для старой структуры.
     
     Args:
         db (Session): Сессия базы данных.
@@ -25,7 +26,7 @@ def create_tariff(db: Session, tariff: schemas.TariffCreate, user_id: Optional[i
         db.add(db_tariff)
         db.commit()
         db.refresh(db_tariff)
-        
+
         # Логирование в Kafka
         message = {
             "user_id": user_id,
@@ -37,15 +38,17 @@ def create_tariff(db: Session, tariff: schemas.TariffCreate, user_id: Optional[i
             "timestamp": db_tariff.effective_date.isoformat(),
         }
         send_to_kafka(message)
-        
+
     except Exception as e:
         db.rollback()
         raise ValueError(f"Ошибка при создании тарифа: {e}")
+    
     return db_tariff
 
+# Получение тарифа по ID для старой структуры
 def get_tariff(db: Session, tariff_id: int) -> Optional[models.Tariff]:
     """
-    Получает тариф по ID.
+    Получает тариф по ID для старой структуры.
     
     Args:
         db (Session): Сессия базы данных.
@@ -59,9 +62,10 @@ def get_tariff(db: Session, tariff_id: int) -> Optional[models.Tariff]:
         raise ValueError(f"Тариф с ID {tariff_id} не найден.")
     return tariff
 
+# Получение всех тарифов для старой структуры
 def get_all_tariffs(db: Session) -> list[models.Tariff]:
     """
-    Получает все тарифы из базы данных.
+    Получает все тарифы из базы данных для старой структуры.
     
     Args:
         db (Session): Сессия базы данных.
@@ -71,9 +75,10 @@ def get_all_tariffs(db: Session) -> list[models.Tariff]:
     """
     return db.query(models.Tariff).all()
 
+# Удаление тарифа для старой структуры
 def delete_tariff(db: Session, tariff_id: int, user_id: Optional[int] = None) -> Optional[models.Tariff]:
     """
-    Удаляет тариф по ID и отправляет лог в Kafka.
+    Удаляет тариф по ID и отправляет лог в Kafka для старой структуры.
     
     Args:
         db (Session): Сессия базы данных.
@@ -88,7 +93,7 @@ def delete_tariff(db: Session, tariff_id: int, user_id: Optional[int] = None) ->
         try:
             db.delete(tariff)
             db.commit()
-            
+
             # Логирование в Kafka
             message = {
                 "user_id": user_id,
@@ -100,15 +105,16 @@ def delete_tariff(db: Session, tariff_id: int, user_id: Optional[int] = None) ->
                 "timestamp": tariff.effective_date.isoformat(),
             }
             send_to_kafka(message)
-            
+
         except Exception as e:
             db.rollback()
             raise ValueError(f"Ошибка при удалении тарифа: {e}")
     return tariff
 
+# Обновление тарифа для старой структуры
 def update_tariff(db: Session, tariff_id: int, updated_tariff: schemas.TariffUpdate, user_id: Optional[int] = None) -> Optional[models.Tariff]:
     """
-    Обновляет тариф по ID и отправляет лог в Kafka.
+    Обновляет тариф по ID и отправляет лог в Kafka для старой структуры.
     
     Args:
         db (Session): Сессия базы данных.
@@ -127,7 +133,7 @@ def update_tariff(db: Session, tariff_id: int, updated_tariff: schemas.TariffUpd
         try:
             db.commit()
             db.refresh(tariff)
-            
+
             # Логирование в Kafka
             message = {
                 "user_id": user_id,
@@ -139,37 +145,66 @@ def update_tariff(db: Session, tariff_id: int, updated_tariff: schemas.TariffUpd
                 "timestamp": tariff.effective_date.isoformat(),
             }
             send_to_kafka(message)
-            
+
         except Exception as e:
             db.rollback()
             raise ValueError(f"Ошибка при обновлении тарифа: {e}")
     return tariff
 
-def calculate_insurance_cost(db: Session, cargo_type: str, declared_value: float, effective_date: date) -> float:
+# Создание тарифов по группам дат и типов грузов для новой структуры
+def create_tariffs_by_date(db: Session, tariffs_by_date: schemas.TariffsByDateCreate, user_id: Optional[int] = None):
     """
-    Рассчитывает стоимость страховки на основе актуального тарифа для типа груза и даты.
+    Создает новые тарифы по группам дат и типов грузов для новой структуры.
     
     Args:
         db (Session): Сессия базы данных.
-        cargo_type (str): Тип груза.
-        declared_value (float): Объявленная стоимость груза.
-        effective_date (date): Дата страхования.
+        tariffs_by_date (schemas.TariffsByDateCreate): Данные для создания тарифов.
+        user_id (Optional[int]): ID пользователя, который совершает действие (если есть).
+    """
+    try:
+        for effective_date, tariffs in tariffs_by_date.tariffs_by_date.items():
+            for tariff in tariffs:
+                db_tariff = models.Tariff(
+                    cargo_type=tariff.cargo_type,
+                    rate=tariff.rate,
+                    effective_date=effective_date,
+                )
+                db.add(db_tariff)
+
+        db.commit()
+
+        # Логирование в Kafka
+        for effective_date, tariffs in tariffs_by_date.tariffs_by_date.items():
+            for tariff in tariffs:
+                message = {
+                    "user_id": user_id,
+                    "action": "create_tariff",
+                    "cargo_type": tariff.cargo_type,
+                    "rate": tariff.rate,
+                    "effective_date": effective_date.isoformat(),
+                    "timestamp": effective_date.isoformat(),
+                }
+                send_to_kafka(message)
+
+    except Exception as e:
+        db.rollback()
+        raise ValueError(f"Ошибка при создании тарифов: {e}")
+
+# Получение тарифов для конкретной даты для новой структуры
+def get_tariffs_by_date(db: Session, effective_date: date) -> Dict[date, List[models.Tariff]]:
+    """
+    Получает тарифы для конкретной даты для новой структуры.
+    
+    Args:
+        db (Session): Сессия базы данных.
+        effective_date (date): Дата для поиска тарифов.
         
     Returns:
-        float: Стоимость страховки.
-        
-    Raises:
-        ValueError: Если тариф для указанного типа груза и даты не найден.
+        Dict[date, List[models.Tariff]]: Словарь с датами и списками тарифов.
     """
-    # Получаем актуальный тариф для данного типа груза и даты
-    tariff = db.query(models.Tariff).filter(
-        models.Tariff.cargo_type == cargo_type,
-        models.Tariff.effective_date <= effective_date
-    ).order_by(models.Tariff.effective_date.desc()).first()
-
-    if not tariff:
-        raise ValueError(f"Не найден тариф для типа груза '{cargo_type}' на дату {effective_date}.")
-
-    # Рассчитываем стоимость страховки
-    insurance_cost = declared_value * tariff.rate
-    return insurance_cost
+    tariffs = db.query(models.Tariff).filter(models.Tariff.effective_date == effective_date).all()
+    if not tariffs:
+        raise ValueError(f"Тарифы на дату {effective_date} не найдены.")
+    
+    tariffs_by_date = {effective_date: tariffs}
+    return tariffs_by_date

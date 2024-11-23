@@ -1,14 +1,9 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, root_validator
 from datetime import date
-from enum import Enum
-
-class CargoTypeEnum(str, Enum):
-    electronics = "electronics"
-    clothing = "clothing"
-    furniture = "furniture"
+from typing import List, Dict
 
 class TariffCreate(BaseModel):
-    cargo_type: CargoTypeEnum = Field(..., description="Тип груза")
+    cargo_type: str = Field(..., description="Тип груза")
     rate: float = Field(..., ge=0, description="Тариф за единицу груза")
     effective_date: date = Field(..., description="Дата вступления тарифа в силу")
 
@@ -19,6 +14,31 @@ class TariffUpdate(BaseModel):
 
 class TariffResponse(TariffCreate):
     id: int
+
+    class Config:
+        orm_mode = True
+
+class TariffsByDateResponse(BaseModel):
+    tariffs_by_date: Dict[date, List[TariffCreate]]
+
+    class Config:
+        orm_mode = True
+
+class TariffsByDateCreate(BaseModel):
+    tariffs_by_date: Dict[date, List[TariffCreate]]
+    
+    @root_validator(pre=True)
+    def add_effective_date(cls, values):
+        """Добавляет поле effective_date в каждый тариф."""
+        if "tariffs_by_date" in values:
+            processed = {}
+            for effective_date, tariffs in values["tariffs_by_date"].items():
+                updated_tariffs = [
+                    {**tariff, "effective_date": effective_date} for tariff in tariffs
+                ]
+                processed[effective_date] = updated_tariffs
+            values["tariffs_by_date"] = processed
+        return values
 
     class Config:
         orm_mode = True

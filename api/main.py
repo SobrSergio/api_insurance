@@ -9,11 +9,26 @@ models.Base.metadata.create_all(bind=engine)
 app = FastAPI()
 
 @app.post("/tariffs/", response_model=schemas.TariffResponse)
-def create_tariff(tariff: schemas.TariffCreate, db: Session = Depends(get_db)):
+def create_tariff(
+    tariff: schemas.TariffCreate, 
+    db: Session = Depends(get_db)
+):
     """
-    Создает новый тариф.
+    Создает новый тариф (старая структура).
     """
     return crud.create_tariff(db, tariff)
+
+@app.post("/tariffs/by_date/", response_model=dict)
+def create_tariffs_by_date(
+    tariffs_by_date: schemas.TariffsByDateCreate, 
+    db: Session = Depends(get_db)
+):
+    """
+    Создает тарифы по датам (новая структура).
+    """
+    crud.create_tariffs_by_date(db, tariffs_by_date)
+    return {"message": "Tariffs created successfully"}
+
 
 @app.get("/")
 def main():
@@ -48,6 +63,29 @@ def update_tariff(tariff_id: int, tariff: schemas.TariffUpdate, db: Session = De
     if not updated:
         raise HTTPException(status_code=404, detail="Tariff not found")
     return updated
+
+@app.get("/tariffs/by_date", response_model=dict)
+def get_tariffs_structured(db: Session = Depends(get_db)):
+    """
+    Получает тарифы из базы данных, возвращая их в структуре, где ключами являются даты, а значениями — тарифы.
+    """
+    tariffs = crud.get_all_tariffs(db)
+    
+    structured_tariffs = {}
+    
+    for tariff in tariffs:
+        # Группируем тарифы по effective_date
+        date_str = tariff.effective_date.isoformat()  # Преобразуем дату в строку
+        if date_str not in structured_tariffs:
+            structured_tariffs[date_str] = []
+        
+        structured_tariffs[date_str].append({
+            "cargo_type": tariff.cargo_type,
+            "rate": tariff.rate,
+            "effective_date": date_str,
+        })
+    
+    return structured_tariffs
 
 # Новый метод для расчета стоимости страхования
 @app.post("/insurance/", response_model=schemas.InsuranceResponse)
